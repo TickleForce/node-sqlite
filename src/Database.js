@@ -127,7 +127,7 @@ class Database {
   /**
    * Migrates database schema to the latest version
    */
-  async migrate({ force, table = 'migrations', migrationsPath = './migrations' } = {}) {
+  async migrate({ force, table = 'migrations', migrationsPath = './migrations', output = false } = {}) {
     /* eslint-disable no-await-in-loop */
     const location = path.resolve(migrationsPath);
 
@@ -149,7 +149,9 @@ class Database {
     });
 
     if (!migrations.length) {
-      throw new Error(`No migration files found in '${location}'.`);
+      throw new Error(`No migration files found in '${location}`);
+    } else if (output) {
+      console.log('Checking migrations...');
     }
 
     // Ge the list of migrations, for example:
@@ -195,6 +197,7 @@ class Database {
     for (const migration of dbMigrations.slice().sort((a, b) => Math.sign(b.id - a.id))) {
       if (!migrations.some(x => x.id === migration.id) ||
         (force === 'last' && migration.id === lastMigration.id)) {
+        if (output) console.log('\x1b[36m%s\x1b[0m', '  Rolling back:', migration.name);
         await this.run('BEGIN');
         try {
           await this.exec(migration.down);
@@ -214,6 +217,7 @@ class Database {
     const lastMigrationId = dbMigrations.length ? dbMigrations[dbMigrations.length - 1].id : 0;
     for (const migration of migrations) {
       if (migration.id > lastMigrationId) {
+        if (output) console.log('\x1b[36m%s\x1b[0m', '  Applying migration:', migration.name);
         await this.run('BEGIN');
         try {
           await this.exec(migration.up);
@@ -228,6 +232,7 @@ class Database {
         }
       }
     }
+    if (output) console.log('  Migrations are up-to-date');
 
     /* eslint-enable no-await-in-loop */
     return this;
